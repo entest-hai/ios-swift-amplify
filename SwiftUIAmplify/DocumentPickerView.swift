@@ -20,6 +20,77 @@ struct SQIAPIOutput: Codable {
     let recordname: String
 }
 
+struct Result {
+    let id = UUID()
+    var pass: Bool? = nil
+    let recordId: String
+    let detail: String
+}
+
+extension Result: Identifiable {
+    
+}
+
+struct DetailResultView : View {
+    
+    let result : Result
+    
+    var body: some View {
+        VStack {
+            Text(self.result.recordId)
+                .font(.largeTitle)
+            Spacer()
+            Text(self.result.detail)
+        }
+        .padding(.bottom, 20)
+    }
+}
+
+struct RowView : View {
+    
+    let result: Result
+    
+    private var iconName: String {
+        if let pass = self.result.pass {
+            if pass {
+                return "p"
+            } else {
+                return "f"
+            }
+        } else {
+            return ""
+        }
+    }
+    
+    private var iconColor: Color {
+        if let pass = self.result.pass {
+            if pass {
+                return .green
+            } else {
+                return .red
+            }
+        } else {
+            return .white
+        }
+    }
+    
+    var body: some View {
+        NavigationLink(destination: DetailResultView(result: self.result)) {
+            HStack {
+                Image(systemName: "\(iconName).circle.fill")
+                    .font(.largeTitle)
+                    .foregroundColor(iconColor)
+                VStack(alignment: .leading) {
+                    Text(self.result.recordId)
+                        .font(.body)
+                        .lineLimit(1)
+                }
+            }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .padding([.leading, .trailing], 5)
+        }
+    }
+}
 
 struct UploadProgressView : View {
     @Binding var percent: CGFloat
@@ -47,9 +118,9 @@ struct UploadProgressView : View {
     }
     
     func callPercent() -> CGFloat{
-           let width = UIScreen.main.bounds.width - 20
-           return width * self.percent
-       }
+        let width = UIScreen.main.bounds.width - 20
+        return width * self.percent
+    }
 }
 
 
@@ -103,13 +174,14 @@ struct DocumentPickerView: View {
     @State var testResults = [String]()
     @State var count: Int = 0
     
+    @State var results = [Result]()
+    
     var body: some View {
+        NavigationView {
             VStack {
-                List() {
-                    ForEach(testResults, id: \.self) {result in
-                        Text(result)
-                            .lineLimit(1)
-                            .frame(alignment: .leading)
+                List {
+                    ForEach(self.results){result in
+                        RowView(result: result)
                     }
                 }
                 
@@ -129,7 +201,8 @@ struct DocumentPickerView: View {
                 }
                 .padding([.top, .bottom], 10)
             }
-            .padding([.bottom], 10)
+            .navigationBarTitle(Text("FemomSQI"))
+        }
     }
     
     func didTapButton() {
@@ -202,6 +275,8 @@ struct DocumentPickerView: View {
             
             self.testResult = "\(json.pass==1 ? "PASS" : "FAIL") - \(json.recordname) "
             self.testResults[self.count] = self.testResult
+            self.results.append(Result(pass: json.pass==1 ? true : false, recordId: json.recordname, detail: "OK"))
+            
             self.count = self.count + 1
             self.url = nil
             self.uploadProgress = 0
