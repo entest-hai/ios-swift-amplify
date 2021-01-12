@@ -2,14 +2,87 @@
 //  AWSS3View.swift
 //  SwiftUIAmplify
 //
-//  Created by hai on 18/12/20.
-//  Copyright © 2020 biorithm. All rights reserved.
+//  Created by hai on 7/1/21.
+//  Copyright © 2021 biorithm. All rights reserved.
 //
 
 import SwiftUI
 import Amplify
 import AmplifyPlugins
 import Combine
+
+// SQI Table with query an existing DynamoDB table
+struct CtgRecord {
+    let id = UUID()
+    let name: String
+    let mSQI: Double
+    let fSQI: Double
+}
+
+extension CtgRecord: Identifiable{
+    
+}
+
+struct CtgRecordView: View {
+    
+    @State var ctgRecords = [CtgRecord]()
+    
+    func fetchRecords(){
+        print("fetch record")
+        Amplify.DataStore.query(Record.self) { result in
+            switch result {
+            case .success(let records):
+                for record in records {
+                    self.ctgRecords.append(
+                        CtgRecord(name: record.name,
+                                  mSQI: record.mSQICh1 ?? 0.0,
+                                  fSQI: record.fSQICh1 ?? 0.0))
+                }
+            case .failure(let error):
+                print("Error retrieving posts \(error)")
+            }
+        }
+    }
+    
+    var body: some View {
+        NavigationView{
+            List(){
+                ForEach(self.ctgRecords){record in
+                    HStack(){
+                        Image(systemName: "person")
+                        Text("\(record.name)" +
+                            "mSQI: \(String(format: "%1.2f", record.mSQI))" +
+                            " fSQI: \(String(format: "%1.2f", record.mSQI))")
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .navigationBarTitle(Text("Femom"))
+            .navigationBarItems(trailing: Button(action: {self.fetchRecords()}){
+                Text("Load")
+            })
+        }
+    }
+}
+
+struct CTGView : View {
+    var body: some View {
+        NavigationView {
+            VStack{
+                Image("1002")
+                .resizable()
+                    .aspectRatio(contentMode: .fit)
+                
+            }
+            .rotationEffect(.degrees(90))
+            .navigationBarTitle(Text("Femom"))
+            .navigationBarItems(trailing: Button(action: {}){
+                Text("Load")
+            })
+        }
+    }
+}
+
 
 struct ProgressView : View {
     
@@ -189,8 +262,6 @@ struct GalleryView : View {
         }
     }
     
-    
-    
     func getPosts() {
         Amplify.DataStore.query(Post.self) {result in
             switch result {
@@ -274,14 +345,14 @@ struct LogOutButtonView : View {
     var body: some View {
         NavigationView {
             Button(action: self.didTapLogOutButton){
-                    Text("Log out")
-                        .frame(height: 40)
-                        .frame(minWidth: 0, maxWidth: .infinity)
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                .padding([.trailing, .leading], 24)
+                Text("Log out")
+                    .frame(height: 40)
+                    .frame(minWidth: 0, maxWidth: .infinity)
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+            .padding([.trailing, .leading], 24)
         }
     }
     
@@ -293,26 +364,34 @@ struct LogOutButtonView : View {
     }
 }
 
-
 struct AWSS3View : View {
     
     @EnvironmentObject var sessionManager: SessionManager
-    var user: AuthUser!
+    var user: AuthUser?
     
     var body: some View {
         TabView {
             CameraView()
                 .tabItem{Image(systemName: "camera")}
             
-            GalleryView()
-                .tabItem{Image(systemName: "photo.on.rectangle")}
+//            GalleryView()
+//                .tabItem{Image(systemName: "photo.on.rectangle")}
             
             DocumentPickerView()
                 .tabItem({Image(systemName: "icloud.and.arrow.up.fill")})
             
             LogOutButtonView()
                 .tabItem({Image(systemName: "person")})
+            
+            CTGView()
+                .tabItem({Image(systemName: "gear")})
+            
+            CtgRecordView()
+            .tabItem({Image(systemName: "photo.on.rectangle")})
         }
     }
 }
+
+
+
 

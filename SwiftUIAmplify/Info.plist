@@ -56,9 +56,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>Need access to camera to share</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Need access to photos to share</string>
 </dict>
 </plist>

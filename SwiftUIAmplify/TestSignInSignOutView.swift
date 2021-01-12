@@ -84,7 +84,7 @@ final class SessionManager: ObservableObject {
                 case .failure(let error):
                     print("Login error: \(error)")
                 }
-                                    
+                
         })
     }
     
@@ -123,49 +123,107 @@ final class SessionManager: ObservableObject {
     }
 }
 
-struct LoginView : View {
+struct Wave: Shape {
+    var yOffset: CGFloat = 0.5
     
+    var animatableData: CGFloat {
+        get {
+            return yOffset
+        }
+        set {
+            yOffset = newValue
+        }
+    }
+    
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: 0))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addCurve(to: CGPoint(x: rect.minX, y: rect.maxY),
+                      control1: CGPoint(x: rect.maxX * 0.75, y: rect.maxY - rect.maxY * yOffset),
+                      control2: CGPoint(x: rect.maxX * 0.25, y: rect.maxY + rect.maxY * yOffset))
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct AnimatedWave : View {
+    @State private var change = true
+    var body: some View {
+        ZStack() {
+            Color("background")
+                .edgesIgnoringSafeArea(.all)
+            VStack(){
+                ZStack(){
+                    Wave(yOffset: self.change ? 0.5 : -0.5)
+                        .fill(Color("wave"))
+                        .frame(height: 150)
+                        .shadow(radius: 4)
+                        .animation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true))
+                    
+                    Wave(yOffset: self.change ? -0.5 : 0.5)
+                        .fill(Color("wave"))
+                        .opacity(0.8)
+                        .frame(height: 130)
+                        .shadow(radius: 4)
+                        .overlay(Text("Biorithm")
+                            .font(.largeTitle)
+                            .fontWeight(.bold))
+                        .animation(Animation.easeInOut(duration: 2).repeatForever(autoreverses: true))
+                }
+                Spacer()
+            }
+            .edgesIgnoringSafeArea(.top)
+        }
+        .onAppear(perform: {self.change.toggle()})
+    }
+}
+
+
+struct LoginView : View {
     @EnvironmentObject var sessionManager: SessionManager
     @State var username = ""
     @State var password = ""
-    
     var body: some View {
-        
-        VStack {
-            Spacer()
-            TextField("Username", text: $username)
-                .frame(height: 40)
-                .textFieldStyle(PlainTextFieldStyle())
-                .padding([.trailing, .leading], 4)
-                .cornerRadius(5)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray))
-            
-            
-            SecureField("Passowrd", text: $password)
-                .frame(height: 40)
-                .textFieldStyle(PlainTextFieldStyle())
-                .padding([.trailing, .leading],4 )
-                .cornerRadius(5)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray))
-            
-            Button(action: {self.sessionManager.login(
-                username: self.username,
-                password: self.password)}){
-                    Text("Login")
-                        .frame(height: 40)
-                        .frame(minWidth: 0, maxWidth: .infinity)
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+        ZStack(){
+            AnimatedWave()
+            VStack {
+                Spacer()
+                TextField("Username", text: $username)
+                    .frame(height: 40)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .padding([.trailing, .leading], 4)
+                    .cornerRadius(5)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray))
+                
+                
+                SecureField("Passowrd", text: $password)
+                    .frame(height: 40)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .padding([.trailing, .leading],4 )
+                    .cornerRadius(5)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray))
+                
+                Button(action: {self.sessionManager.login(
+                    username: self.username,
+                    password: self.password)}){
+                        Text("Login")
+                            .frame(height: 40)
+                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                }
+                Spacer()
+                Button("Don't have an account? Sign up", action: {
+                    self.sessionManager.showSignUp()
+                    //                self.sessionManager.signOut()
+                })
             }
-            
-            
-            Spacer()
-            Button("Don't have an account? Sign up", action: {
-                self.sessionManager.showSignUp()
-            })
+            .padding()
         }
-        .padding()
+        
     }
 }
 
@@ -255,13 +313,13 @@ struct SessionView : View {
             Text("Session").font(.largeTitle)
             Spacer()
             Button(action: {self.sessionManager.signOut()}) {
-                       Text("Logout")
-                           .frame(height: 40)
-                           .frame(minWidth: 0, maxWidth: .infinity)
-                           .background(Color.green)
-                           .foregroundColor(.white)
-                           .cornerRadius(10)
-                   }
+                Text("Logout")
+                    .frame(height: 40)
+                    .frame(minWidth: 0, maxWidth: .infinity)
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
             .padding([.trailing, .leading], 20)
         }
     }
@@ -275,6 +333,7 @@ struct TestSignInSignOutView: View {
         
         switch self.sessionManager.authState {
         case .login:
+            //            return AnyView(AWSS3View())
             return AnyView(LoginView())
         case .signUp:
             return AnyView(SignUpView())
@@ -286,4 +345,3 @@ struct TestSignInSignOutView: View {
         }
     }
 }
-
