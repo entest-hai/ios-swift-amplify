@@ -218,7 +218,7 @@ struct LoginView : View {
                 Spacer()
                 Button("Don't have an account? Sign up", action: {
                     self.sessionManager.showSignUp()
-                    //                self.sessionManager.signOut()
+//                                    self.sessionManager.signOut()
                 })
             }
             .padding()
@@ -326,7 +326,6 @@ struct SessionView : View {
 }
 
 struct TestSignInSignOutView: View {
-    
     @EnvironmentObject var sessionManager: SessionManager
     
     var body: some View {
@@ -340,7 +339,10 @@ struct TestSignInSignOutView: View {
         case .confirmCode(let username):
             return AnyView(ConfirmationView(username: username))
         case .session(let user):
-            return AnyView(AWSS3View(user:  user))
+//            return AnyView(AWSS3View(user:  user))
+//            return AnyView(SongTableView())
+            return AnyView(CTGPaperView())
+//            return AnyView(HeartRateTableView())
             
         }
     }
