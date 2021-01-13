@@ -15,6 +15,8 @@ import AmplifyPlugins
 let timerPeriod: Int = 1
 let maxScreenLength : Int = 4800
 
+// MARK: - Simulate heart rate using timer
+// TODO: - Timer in background
 class SimulateHeartRateModel : ObservableObject {
     private var constBeats = [Double]()
     @Published var beats = [Double]()
@@ -34,7 +36,7 @@ class SimulateHeartRateModel : ObservableObject {
             }
             self.counter += 1
         } else {
-//            self.isActive = false
+            //            self.isActive = false
         }
     }
     
@@ -57,6 +59,7 @@ class SimulateHeartRateModel : ObservableObject {
     
 }
 
+// MARK: - Observe heart rate tabel from DB
 class HeartRateViewModel : ObservableObject {
     var isoformatter = ISO8601DateFormatter.init()
     private var bufferBeats = [HeartRate]()
@@ -64,6 +67,7 @@ class HeartRateViewModel : ObservableObject {
     @Published var bufferTime = [Temporal.DateTime]()
     @Published var bufferFHR = [Double]()
     
+    // MARK: - Fetch heart rate from DB
     func loadHeartRateFromDB() {
         Amplify.DataStore.query(HeartRate.self){result in
             switch result {
@@ -80,35 +84,41 @@ class HeartRateViewModel : ObservableObject {
         }
     }
     
+    // MARK: - Observe DB table
     @State var token: AnyCancellable?
-        func observeHeartRatesDBTable(){
-            token = Amplify.DataStore.publisher(for: HeartRate.self).sink(
-                receiveCompletion: {
+    func observeHeartRatesDBTable(){
+        token = Amplify.DataStore.publisher(for: HeartRate.self).sink(
+            receiveCompletion: {
                 print($0)
-            }, receiveValue: { event in
-                do {
-                    let beats = try event.decodeModel(as: HeartRate.self)
-                    self.bufferBeats.append(beats)
-                    self.bufferBeats = self.bufferBeats.sorted(by: { $0.time![0].foundationDate > $1.time![0].foundationDate })
-                    
-                    self.bufferFHR.removeAll()
-                    self.bufferMHR.removeAll()
-                    self.bufferTime.removeAll()
-                    
-                    for beat in self.bufferBeats {
-                        self.bufferFHR.append(contentsOf: beat.fHR ?? [0.0])
-                        self.bufferMHR.append(contentsOf: beat.mHR ?? [0.0])
-                        self.bufferTime.append(contentsOf: beat.time!)
-                    }
-                } catch {
-                    print(error)
+        }, receiveValue: { event in
+            do {
+                let beats = try event.decodeModel(as: HeartRate.self)
+                self.bufferBeats.append(beats)
+                self.bufferBeats = self.bufferBeats.sorted(by: { $0.time![0].foundationDate > $1.time![0].foundationDate })
+                
+                //TODO: efficient by remove this copy and sort each update
+                self.bufferFHR.removeAll()
+                self.bufferMHR.removeAll()
+                self.bufferTime.removeAll()
+                
+                for beat in self.bufferBeats {
+                    self.bufferFHR.append(contentsOf: beat.fHR ?? [0.0])
+                    self.bufferMHR.append(contentsOf: beat.mHR ?? [0.0])
+                    self.bufferTime.append(contentsOf: beat.time!)
                 }
-            })
-        }
+            } catch {
+                print(error)
+            }
+        })
+    }
 }
 
+//MARK: - Plot heart rate line
+//TODO: Skip when NaN and update DB schema with better DateTime for sorting
 struct HeartRateLine : Shape {
     @State var beats: [Double]
+    
+    // TODO constant
     let heartRatePeriod : Double = 0.25
     let minHeartRate : Double = 30
     let maxHeartRate : Double = 240
@@ -145,46 +155,59 @@ struct HeartRateLine : Shape {
     }
 }
 
-struct CTGGrid : Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        for i in 0...20 {
-            let stepY = CGFloat(i) * rect.maxY / 20
-            path.move(to: CGPoint(x: 0, y: stepY))
-            path.addLine(to: CGPoint(x:UIScreen.main.bounds.width,y: stepY))
-        }
-        
-        for i in 0...40 {
-            let stepX = CGFloat(i) * rect.maxX / 40
-            path.move(to: CGPoint(x: stepX, y: 0))
-            path.addLine(to: CGPoint(x: stepX, y: rect.maxY))
-        }
-        return path
-    }
-}
-
-struct HeartRateAxis : View {
+// MARK: - Create CTGPaper with given box size using GeometryReader for calculating size
+// TODO: - Extract constants and parameters for CTGPaper
+struct CTGPaper : View {
+    var horizontalSpacing: CGFloat = 20
+    var verticalSpacing: CGFloat = 20
+    
     var body: some View {
-        VStack(spacing: UIScreen.main.bounds.height / 18.2){
-                ForEach((0...10).reversed(), id: \.self) {i in
-                    Text("\(30 + i * 20)")
+        GeometryReader { geometry in
+            ZStack(){
+                Path { path in
+                    let numberOfHorizontalGridLines = Int(geometry.size.height / self.verticalSpacing)
+                    let numberOfVerticalGridLines = Int(geometry.size.width / self.horizontalSpacing)
+                    for index in 0...numberOfVerticalGridLines {
+                        let vOffset: CGFloat = CGFloat(index) * self.horizontalSpacing
+                        path.move(to: CGPoint(x: vOffset, y: 0))
+                        path.addLine(to: CGPoint(x: vOffset, y: geometry.size.height))
+                    }
+                    for index in 0...numberOfHorizontalGridLines {
+                        let hOffset: CGFloat = CGFloat(index) * self.verticalSpacing
+                        path.move(to: CGPoint(x: 0, y: hOffset))
+                        path.addLine(to: CGPoint(x: geometry.size.width, y: hOffset))
+                    }
+                }
+                .stroke(Color.blue, lineWidth: 0.5)
+            }
+            VStack(spacing: (geometry.size.height - 100)/10){
+                ForEach((0 ..< 10).reversed(), id: \.self){idx in
+                    Text("\(30 + 20*idx)")
+                        .frame(width: 40, height: 10)
                         .font(.system(size: 12))
                 }
+                Spacer()
             }
-        }
-}
-
-struct TimeAxis : View {
-    var body: some View {
-        HStack(spacing: UIScreen.main.bounds.width / 30){
-            ForEach((1...20), id: \.self) {i in
-                Text("\(i)")
-                    .font(.system(size: 12))
+            .frame(width: 20)
+            .background(Color.blue.opacity(0.5))
+            VStack(){
+                Spacer()
+                HStack(spacing: (geometry.size.width - 800)/10){
+                    ForEach((0 ..< 20 ), id: \.self){idx in
+                        Text("\(idx)")
+                            .frame(width: 40, height: 10)
+                            .font(.system(size: 12))
+                    }
+                    Spacer()
+                }
+                .frame(height: 20)
+                .background(Color.purple.opacity(0.5))
             }
         }
     }
 }
 
+// MARK: - Final CTGPaperView with data loaded from observed table 
 struct CTGPaperView: View {
     @ObservedObject var heartRateTableModel = HeartRateViewModel()
     @ObservedObject var simulateHeartRateModel = SimulateHeartRateModel()
@@ -193,18 +216,7 @@ struct CTGPaperView: View {
         ZStack(){
             Color.white.opacity(0.2).edgesIgnoringSafeArea(.all)
             ZStack(){
-                CTGGrid()
-                    .stroke(Color.blue, lineWidth: 0.3)
-                HStack(){
-                    HeartRateAxis()
-                    Spacer()
-                }
-                VStack(){
-                    Spacer()
-                    TimeAxis()
-                        .padding(.leading, 5)
-                }
-                
+                CTGPaper()
                 HeartRateLine(beats: self.simulateHeartRateModel.beats)
                     .stroke(Color.red, lineWidth: 1.2)
             }
@@ -212,10 +224,10 @@ struct CTGPaperView: View {
                 _ = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true, block: { _ in
                     self.simulateHeartRateModel.simulateRealTimeHeartRate()
                 })
-//                self.simulateHeartRateModel.loadHeartRateFromFile()
-//                self.heartRateTableModel.loadHeartRateFromFile()
+                //                        self.simulateHeartRateModel.loadHeartRateFromFile()
+                //                self.heartRateTableModel.loadHeartRateFromFile()
             })
-            }
         }
+    }
 }
 
