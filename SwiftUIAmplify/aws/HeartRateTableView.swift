@@ -27,7 +27,7 @@ struct HeartRateTableView: View {
                     Text("\(self.isoformatter.string(from: self.bufferTime[idx].foundationDate)) mHR: \(String(format: "%1.2f", self.bufferMHR[idx])) fHR: \(String(format: "%1.2f", self.bufferFHR[idx])) ")
                 }
             }
-            .navigationBarTitle(Text("HeartRate"))
+            .navigationBarTitle(Text("HeartRate \(self.bufferBeats.count)"))
             .navigationBarItems(trailing: Button(action: {
                 self.loadHeartRates()
                 self.observeHeartRates()

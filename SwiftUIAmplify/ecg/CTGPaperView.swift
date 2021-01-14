@@ -62,7 +62,7 @@ class SimulateHeartRateModel : ObservableObject {
 // MARK: - Observe heart rate tabel from DB
 class HeartRateViewModel : ObservableObject {
     var isoformatter = ISO8601DateFormatter.init()
-    private var bufferBeats = [HeartRate]()
+    @Published var bufferBeats = [HeartRate]()
     @Published var bufferMHR = [Double]()
     @Published var bufferTime = [Temporal.DateTime]()
     @Published var bufferFHR = [Double]()
@@ -72,12 +72,13 @@ class HeartRateViewModel : ObservableObject {
         Amplify.DataStore.query(HeartRate.self){result in
             switch result {
             case .success(let beats):
-                self.bufferBeats = beats.sorted(by: { $0.time![0].foundationDate > $1.time![0].foundationDate })
+                self.bufferBeats = beats.sorted(by: { $0.time![0].foundationDate < $1.time![0].foundationDate })
                 for beat in self.bufferBeats {
                     self.bufferFHR.append(contentsOf: beat.fHR ?? [0.0])
                     self.bufferMHR.append(contentsOf: beat.mHR ?? [0.0])
                     self.bufferTime.append(contentsOf: beat.time!)
                 }
+                print("number of bea \(self.bufferBeats.count)")
             case .failure(let error):
                 print(error)
             }
@@ -88,13 +89,15 @@ class HeartRateViewModel : ObservableObject {
     @State var token: AnyCancellable?
     func observeHeartRatesDBTable(){
         token = Amplify.DataStore.publisher(for: HeartRate.self).sink(
-            receiveCompletion: {
-                print($0)
+            receiveCompletion: { completion in
+                if case .failure(let error) = completion {
+                    print(error)
+                }
         }, receiveValue: { event in
             do {
                 let beats = try event.decodeModel(as: HeartRate.self)
                 self.bufferBeats.append(beats)
-                self.bufferBeats = self.bufferBeats.sorted(by: { $0.time![0].foundationDate > $1.time![0].foundationDate })
+                self.bufferBeats = self.bufferBeats.sorted(by: { $0.time![0].foundationDate < $1.time![0].foundationDate })
                 
                 //TODO: efficient by remove this copy and sort each update
                 self.bufferFHR.removeAll()
@@ -211,23 +214,86 @@ struct CTGPaper : View {
 struct CTGPaperView: View {
     @ObservedObject var heartRateTableModel = HeartRateViewModel()
     @ObservedObject var simulateHeartRateModel = SimulateHeartRateModel()
-    
     var body: some View {
         ZStack(){
             Color.white.opacity(0.2).edgesIgnoringSafeArea(.all)
             ZStack(){
                 CTGPaper()
-                HeartRateLine(beats: self.simulateHeartRateModel.beats)
+                HeartRateLine(beats: self.bufferFHR)
                     .stroke(Color.red, lineWidth: 1.2)
+                HeartRateLine(beats: self.bufferMHR)
+                .stroke(Color.black, lineWidth: 1.2)
+                VStack(){
+                    Text("\(self.bufferFHR.count): beat")
+                        .frame(width: 150, height: 30)
+                        .background(Color.green.opacity(0.5))
+                        .cornerRadius(5)
+                    Spacer()
+                }
             }
             .onAppear(perform: {
-                _ = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true, block: { _ in
-                    self.simulateHeartRateModel.simulateRealTimeHeartRate()
-                })
-                //                        self.simulateHeartRateModel.loadHeartRateFromFile()
-                //                self.heartRateTableModel.loadHeartRateFromFile()
+                //                _ = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true, block: { _ in
+                //                    self.simulateHeartRateModel.simulateRealTimeHeartRate()
+                //                })
+                //                                        self.simulateHeartRateModel.loadHeartRateFromFile()
+                self.loadHeartRateFromDB()
+                self.observeHeartRatesDBTable()
             })
         }
     }
+    
+    var isoformatter = ISO8601DateFormatter.init()
+    @State var bufferBeats = [HeartRate]()
+    @State var bufferMHR = [Double]()
+    @State var bufferTime = [Temporal.DateTime]()
+    @State var bufferFHR = [Double]()
+       
+       // MARK: - Fetch heart rate from DB
+       func loadHeartRateFromDB() {
+           Amplify.DataStore.query(HeartRate.self){result in
+               switch result {
+               case .success(let beats):
+                   self.bufferBeats = beats.sorted(by: { $0.time![0].foundationDate < $1.time![0].foundationDate })
+                   for beat in self.bufferBeats {
+                       self.bufferFHR.append(contentsOf: beat.fHR ?? [0.0])
+                       self.bufferMHR.append(contentsOf: beat.mHR ?? [0.0])
+                       self.bufferTime.append(contentsOf: beat.time!)
+                   }
+                   print("number of bea \(self.bufferBeats.count)")
+               case .failure(let error):
+                   print(error)
+               }
+           }
+       }
+       
+       // MARK: - Observe DB table
+       @State var token: AnyCancellable?
+       func observeHeartRatesDBTable(){
+           token = Amplify.DataStore.publisher(for: HeartRate.self).sink(
+               receiveCompletion: { completion in
+                   if case .failure(let error) = completion {
+                       print(error)
+                   }
+           }, receiveValue: { event in
+               do {
+                   let beats = try event.decodeModel(as: HeartRate.self)
+                   self.bufferBeats.append(beats)
+                   self.bufferBeats = self.bufferBeats.sorted(by: { $0.time![0].foundationDate < $1.time![0].foundationDate })
+                   
+                   //TODO: efficient by remove this copy and sort each update
+                   self.bufferFHR.removeAll()
+                   self.bufferMHR.removeAll()
+                   self.bufferTime.removeAll()
+                   
+                   for beat in self.bufferBeats {
+                       self.bufferFHR.append(contentsOf: beat.fHR ?? [0.0])
+                       self.bufferMHR.append(contentsOf: beat.mHR ?? [0.0])
+                       self.bufferTime.append(contentsOf: beat.time!)
+                   }
+               } catch {
+                   print(error)
+               }
+           })
+       }
 }
 

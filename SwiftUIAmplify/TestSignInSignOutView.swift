@@ -343,7 +343,7 @@ struct TestSignInSignOutView: View {
 //            return AnyView(SongTableView())
             return AnyView(CTGPaperView())
 //            return AnyView(HeartRateTableView())
-            
+//            return AnyView(TestHeartRateTableView())
         }
     }
 }
